@@ -25,9 +25,9 @@ def list_tracks(
 
 # post for creating tracks using ISRC
 @app.post("/tracks/", response_model=schemas.TrackOut, status_code=status.HTTP_201_CREATED)
-def create_track(track: schemas.TrackCreate, db: Session = Depends(get_db)):
+def create_track(track: schemas.TrackCreate, session: Session = Depends(get_db)):
     
-    db_track = db.query(models.Track).filter(models.Track.isrc == track.isrc).first()
+    db_track = session.query(models.Track).filter(models.Track.isrc == track.isrc).first()
     if db_track:
         raise HTTPException(status_code=400, detail="Track with this ISRC already exists")
     # Consulta Spotify
@@ -40,21 +40,21 @@ def create_track(track: schemas.TrackCreate, db: Session = Depends(get_db)):
         title=metadata["title"],
         image_url=metadata["image_url"]
     )
-    db.add(new_track)
-    db.commit()
-    db.refresh(new_track)
-    # add artists 
+    session.add(new_track)
+    session.commit()
+    session.refresh(new_track)
+    # add artists
     for artist_name in metadata["artists"]:
         artist = models.Artist(name=artist_name, track_id=new_track.id)
-        db.add(artist)
-    db.commit()
-    db.refresh(new_track)
+        session.add(artist)
+    session.commit()
+    session.refresh(new_track)
     return new_track
 
 # Endpoint para consultar un track por ISRC
 @app.get("/tracks/{isrc}", response_model=schemas.TrackOut)
-def get_track_by_isrc(isrc: str, db: Session = Depends(get_db)):
-    track = db.query(models.Track).filter(models.Track.isrc == isrc).first()
+def get_track_by_isrc(isrc: str, session: Session = Depends(get_db)):
+    track = session.query(models.Track).filter(models.Track.isrc == isrc).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     return track
@@ -65,12 +65,12 @@ def get_tracks_by_artist(
     artist_name: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_db)
+    session: Session = Depends(get_db)
 ):
     # Busca artistas con nombre LIKE
-    artists = db.query(models.Artist).filter(models.Artist.name.ilike(f"%{artist_name}%")).all()
+    artists = session.query(models.Artist).filter(models.Artist.name.ilike(f"%{artist_name}%")).all()
     track_ids = list({artist.track_id for artist in artists})
     if not track_ids:
         return []
-    tracks = db.query(models.Track).filter(models.Track.id.in_(track_ids)).offset(skip).limit(limit).all()
+    tracks = session.query(models.Track).filter(models.Track.id.in_(track_ids)).offset(skip).limit(limit).all()
     return tracks
