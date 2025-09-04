@@ -13,6 +13,16 @@ Base.metadata.create_all(bind=engine)
 def root():
     return {"message": "Welcome to Music API"}
 
+
+@app.get("/tracks/", response_model=list[schemas.TrackOut])
+def list_tracks(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    tracks = db.query(models.Track).offset(skip).limit(limit).all()
+    return tracks
+
 # post for creating tracks using ISRC
 @app.post("/tracks/", response_model=schemas.TrackOut, status_code=status.HTTP_201_CREATED)
 def create_track(track: schemas.TrackCreate, db: Session = Depends(get_db)):
@@ -33,7 +43,7 @@ def create_track(track: schemas.TrackCreate, db: Session = Depends(get_db)):
     db.add(new_track)
     db.commit()
     db.refresh(new_track)
-    # adding artists 
+    # add artists 
     for artist_name in metadata["artists"]:
         artist = models.Artist(name=artist_name, track_id=new_track.id)
         db.add(artist)
@@ -41,7 +51,7 @@ def create_track(track: schemas.TrackCreate, db: Session = Depends(get_db)):
     db.refresh(new_track)
     return new_track
 
-# Endpoint for getting track by ISRC
+# Endpoint para consultar un track por ISRC
 @app.get("/tracks/{isrc}", response_model=schemas.TrackOut)
 def get_track_by_isrc(isrc: str, db: Session = Depends(get_db)):
     track = db.query(models.Track).filter(models.Track.isrc == isrc).first()
@@ -49,7 +59,7 @@ def get_track_by_isrc(isrc: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Track not found")
     return track
 
-# Endpoint for getting tracks by artist (LIKE search, pagination)
+# Endpoint para consultar tracks por artista (búsqueda LIKE, paginación)
 @app.get("/tracks/artist/{artist_name}", response_model=list[schemas.TrackOut])
 def get_tracks_by_artist(
     artist_name: str,
