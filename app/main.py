@@ -1,7 +1,9 @@
 from fastapi import FastAPI
-
+from app.database import engine, Base
+from app import models
 app = FastAPI()
 
+Base.metadata.create_all(bind=engine)
 @app.get("/")
-def read_root():
+def root():
     return {"message": "Welcome to Music API 🎶"}
